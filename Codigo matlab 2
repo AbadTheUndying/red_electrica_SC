@@ -1,0 +1,442 @@
+clear; clc; close all;
+
+%% ===== funciones auxiliares =====
+function d = haversine_km(lat1, lon1, lat2, lon2)
+    R = 6371.0; % radio medio terrestre [km]
+    p1 = deg2rad(lat1);
+    p2 = deg2rad(lat2);
+    dp = deg2rad(lat2-lat1);
+    dl = deg2rad(lon2-lon1);
+
+    a = sin(dp/2)^2 + cos(p1)*cos(p2)*sin(dl/2)^2;
+    d = 2*R*asin(sqrt(a));
+end
+
+%% Proyecto
+nodeNames = {
+'B01 Galicia-Norte'
+'B02 Galicia-Sur'
+'B03 Asturias-Centro'
+'B04 Cantabria-Mataporquera'
+'B05 Pais Vasco-Gatika'
+'B06 Navarra-Muruarte'
+'B07 Aragon-Ebro'
+'B08 Aragon-Pirineos'
+'B09 CastillaLeon-Oeste'
+'B10 CastillaLeon-Este'
+'B11 Extremadura-Almaraz'
+'B12 Extremadura-Badajoz'
+'B13 CLM-Oeste'
+'B14 CLM-Este-Slack'
+'B15 Madrid-400kV'
+'B16 Andalucia-Oeste'
+'B17 Andalucia-Este'
+'B18 Cataluna-Tarragona'
+'B19 Cataluna-Norte'
+'B20 CValenciana-Saguntum'
+};
+
+%Aristas propuestas
+s = [
+    1 1 2 3 4 5 6 7 8 ...
+    5 6 9 9 9 10 ...
+    11 11 13 14 ...
+    12 13 13 16 ...
+    7 18 18 15 14 17 ...
+];
+
+t = [ ...
+    2 3 9 4 5 6 7 8 19 ...
+    10 10 10 11 13 14 ...
+    12 13 14 15 ...
+    16 16 17 17 ...
+    18 19 20 20 20 20 ...
+];
+
+G = graph(s,t,[],nodeNames);
+
+lon = [ ...
+   -7.5  ... B01 Galicia-Norte
+   -8.4  ... B02 Galicia-Sur
+   -5.8  ... B03 Asturias-Centro
+   -4.0  ... B04 Cantabria-Mataporquera
+   -2.9  ... B05 Pais Vasco-Gatika
+   -1.6  ... B06 Navarra-Muruarte
+   -0.9  ... B07 Aragon-Ebro
+    0.6  ... B08 Aragon-Pirineos
+   -5.7  ... B09 CastillaLeon-Oeste
+   -4.7  ... B10 CastillaLeon-Este
+   -5.7  ... B11 Extremadura-Almaraz
+   -6.8  ... B12 Extremadura-Badajoz
+   -4.0  ... B13 CLM-Oeste
+   -3.0  ... B14 CLM-Este-Slack
+   -3.7  ... B15 Madrid-400kV
+   -6.0  ... B16 Andalucia-Oeste
+   -3.2  ... B17 Andalucia-Este
+    1.2  ... B18 Cataluna-Tarragona
+    2.2  ... B19 Cataluna-Norte
+   -0.2  ... B20 CValenciana-Saguntum
+];
+
+lat = [ ...
+   43.2  ... B01 Galicia-Norte
+   42.3  ... B02 Galicia-Sur
+   43.4  ... B03 Asturias-Centro
+   43.0  ... B04 Cantabria-Mataporquera
+   43.3  ... B05 Pais Vasco-Gatika
+   42.7  ... B06 Navarra-Muruarte
+   41.6  ... B07 Aragon-Ebro
+   42.7  ... B08 Aragon-Pirineos
+   41.8  ... B09 CastillaLeon-Oeste
+   41.8  ... B10 CastillaLeon-Este
+   39.8  ... B11 Extremadura-Almaraz
+   38.9  ... B12 Extremadura-Badajoz
+   38.9  ... B13 CLM-Oeste
+   39.8  ... B14 CLM-Este-Slack
+   40.4  ... B15 Madrid-400kV
+   37.5  ... B16 Andalucia-Oeste
+   37.2  ... B17 Andalucia-Este
+   41.1  ... B18 Cataluna-Tarragona
+   42.1  ... B19 Cataluna-Norte
+   39.7  ... B20 CValenciana-Saguntum
+];
+  
+
+figure;
+p = plot(G, ...
+    'XData', lon, ...
+    'YData', lat, ...
+    'NodeLabel', nodeNames, ...
+    'LineWidth', 1.2, ...
+    'MarkerSize', 5);
+
+title('Backbone red peninsular con coordenadas geograficas aproximadas');
+xlabel('Longitud');
+ylabel('Latitud');
+axis equal;
+grid on;
+
+A = full(adjacency(G));
+L = full(laplacian(G));
+B = full(incidence(G));
+
+%MODELO SWING EQUATION
+
+
+%POTENCIAS DE CADA NODO
+% Pi en GW (inyeccion neta media)
+% positivo = nodo exportador / generador neto
+% negativo = nodo consumidor / importador neto
+
+Pi = [ ...
+   0.623  % B01 Galicia-Norte
+   0.265  % B02 Galicia-Sur
+  -0.093  % B03 Asturias-Centro
+  -0.367  % B04 Cantabria-Mataporquera
+  -1.096  % B05 Pais Vasco-Gatika
+   0.166  % B06 Navarra-Muruarte
+   1.007  % B07 Aragon-Ebro
+   0.140  % B08 Aragon-Pirineos
+   0.752  % B09 CastillaLeon-Oeste
+   0.589  % B10 CastillaLeon-Este
+   2.186  % B11 Extremadura-Almaraz
+   0.350  % B12 Extremadura-Badajoz
+   0.179  % B13 CLM-Oeste
+   1.622  % B14 CLM-Este-Slack
+  -2.999  % B15 Madrid-400kV
+   0.098  % B16 Andalucia-Oeste
+  -1.038  % B17 Andalucia-Este
+   1.811  % B18 Cataluna-Tarragona
+  -2.893  % B19 Cataluna-Norte
+  -1.302  % B20 CValenciana-Saguntum
+];
+
+sum(Pi)   % ~ 0
+
+%INERCIAS DE CADA NODO
+% Ssyn: potencia sincrona equivalente en servicio [GW]
+Ssyn = [ ...
+    1.10;  % B01 Galicia-Norte
+    0.55;  % B02 Galicia-Sur
+    0.70;  % B03 Asturias-Centro
+    0.30;  % B04 Cantabria-Mataporquera
+    1.00;  % B05 Pais Vasco-Gatika
+    0.80;  % B06 Navarra-Muruarte
+    1.10;  % B07 Aragon-Ebro
+    0.45;  % B08 Aragon-Pirineos
+    1.10;  % B09 CastillaLeon-Oeste
+    0.80;  % B10 CastillaLeon-Este
+    2.05;  % B11 Extremadura-Almaraz
+    0.25;  % B12 Extremadura-Badajoz
+    0.55;  % B13 CLM-Oeste
+    1.55;  % B14 CLM-Este-Slack
+    0.35;  % B15 Madrid-400kV
+    1.80;  % B16 Andalucia-Oeste
+    1.00;  % B17 Andalucia-Este
+    3.75;  % B18 Cataluna-Tarragona
+    1.20;  % B19 Cataluna-Norte
+    2.10   % B20 CValenciana-Saguntum
+];
+
+% H medio ponderado [s]
+Hbar = [ ...
+    3.6;
+    3.6;
+    4.0;
+    3.0;
+    4.7;
+    4.2;
+    3.8;
+    3.4;
+    3.5;
+    3.5;
+    5.8;
+    3.2;
+    4.0;
+    5.0;
+    3.5;
+    4.2;
+    4.2;
+    5.6;
+    4.2;
+    4.0
+];
+
+Mstar = 2*Hbar.*Ssyn;   % [GW*s]
+
+% Resultado numerico
+Mstar = [ ...
+     7.92;
+     3.96;
+     5.60;
+     1.80;
+     9.40;
+     6.72;
+     8.36;
+     3.06;
+     7.70;
+     5.60;
+    23.78;
+     1.60;
+     4.40;
+    15.50;
+     2.45;
+    15.12;
+     8.40;
+    42.00;
+    10.08;
+    16.80
+];
+
+ws = 2*pi*50;       % rad/s
+Mi = Mstar/ws;      % [GW*s^2/rad]
+
+Mi = [ ...
+    0.0252;
+    0.0126;
+    0.0178;
+    0.0057;
+    0.0299;
+    0.0214;
+    0.0266;
+    0.0097;
+    0.0245;
+    0.0178;
+    0.0757;
+    0.0051;
+    0.0140;
+    0.0493;
+    0.0078;
+    0.0481;
+    0.0267;
+    0.1337;
+    0.0321;
+    0.0535
+];
+
+
+%Amortiguamiento de cada nodo
+% Amortiguamiento nodal Di [GW*s/rad]
+
+Di = [ ...
+    0.080;  % B01 Galicia-Norte
+    0.060;  % B02 Galicia-Sur
+    0.050;  % B03 Asturias-Centro
+    0.035;  % B04 Cantabria-Mataporquera
+    0.075;  % B05 Pais Vasco-Gatika
+    0.065;  % B06 Navarra-Muruarte
+    0.085;  % B07 Aragon-Ebro
+    0.055;  % B08 Aragon-Pirineos
+    0.090;  % B09 CastillaLeon-Oeste
+    0.085;  % B10 CastillaLeon-Este
+    0.130;  % B11 Extremadura-Almaraz
+    0.065;  % B12 Extremadura-Badajoz
+    0.075;  % B13 CLM-Oeste
+    0.110;  % B14 CLM-Este-Slack
+    0.110;  % B15 Madrid-400kV
+    0.100;  % B16 Andalucia-Oeste
+    0.085;  % B17 Andalucia-Este
+    0.120;  % B18 Cataluna-Tarragona
+    0.125;  % B19 Cataluna-Norte
+    0.100   % B20 CValenciana-Saguntum
+];
+
+
+%Matrix de K(factor de cesion de potencia)
+%% =========================
+%  MATRIZ DE ACOPLAMIENTO K
+%  K_ij ~ n_ij * V^2 / (xkm * L_ij)
+%  V = 400 kV
+%  xkm = 0.40 ohm/km
+%  L_ij en km
+%  K_ij en GW
+%% =========================
+
+V_kV = 400;        % tension backbone
+xkm  = 0.40;       % reactancia serie tipica [ohm/km]
+
+% Mismo orden que s y t
+edgeNames = {
+'B01-B02'
+'B01-B03'
+'B02-B09'
+'B03-B04'
+'B04-B05'
+'B05-B06'
+'B06-B07'
+'B07-B08'
+'B08-B19'
+'B05-B10'
+'B06-B10'
+'B09-B10'
+'B09-B11'
+'B09-B13'
+'B10-B14'
+'B11-B12'
+'B11-B13'
+'B13-B14'
+'B14-B15'
+'B12-B16'
+'B13-B16'
+'B13-B17'
+'B16-B17'
+'B07-B18'
+'B18-B19'
+'B18-B20'
+'B15-B20'
+'B14-B20'
+'B17-B20'
+};
+
+% ---------------------------------------------------------
+% 1) Distancia geografica recta entre nodos [km]
+% ---------------------------------------------------------
+Nedges = length(s);
+d_geo = zeros(Nedges,1);
+
+for e = 1:Nedges
+    i = s(e);
+    j = t(e);
+    d_geo(e) = haversine_km(lat(i), lon(i), lat(j), lon(j));
+end
+
+% ---------------------------------------------------------
+% 2) Factor de correccion del trazado real alpha_ij
+%    1.10 = corredor relativamente directo
+%    1.15 = corredor normal
+%    1.20 = corredor mas sinuoso / relieve
+%    1.30 = corredor montanoso fuerte (Pirineos)
+% ---------------------------------------------------------
+alpha = [ ...
+    1.15;  % B01-B02
+    1.20;  % B01-B03
+    1.20;  % B02-B09
+    1.15;  % B03-B04
+    1.15;  % B04-B05
+    1.10;  % B05-B06
+    1.10;  % B06-B07
+    1.20;  % B07-B08
+    1.30;  % B08-B19
+    1.20;  % B05-B10
+    1.15;  % B06-B10
+    1.10;  % B09-B10
+    1.15;  % B09-B11
+    1.15;  % B09-B13
+    1.10;  % B10-B14
+    1.10;  % B11-B12
+    1.10;  % B11-B13
+    1.10;  % B13-B14
+    1.10;  % B14-B15
+    1.15;  % B12-B16
+    1.15;  % B13-B16
+    1.15;  % B13-B17
+    1.15;  % B16-B17
+    1.15;  % B07-B18
+    1.10;  % B18-B19
+    1.10;  % B18-B20
+    1.10;  % B15-B20
+    1.10;  % B14-B20
+    1.15   % B17-B20
+];
+
+% Longitud electrica aproximada del corredor [km]
+Lij = alpha .* d_geo;
+
+% ---------------------------------------------------------
+% 3) Numero de circuitos equivalentes n_ij
+%    2 en corredores troncales fuertes de la red reducida
+%    1 en corredores normales
+% ---------------------------------------------------------
+nij = [ ...
+    2;  % B01-B02  corredor gallego fuerte
+    1;  % B01-B03
+    1;  % B02-B09
+    1;  % B03-B04
+    1;  % B04-B05
+    1;  % B05-B06
+    1;  % B06-B07
+    1;  % B07-B08
+    1;  % B08-B19
+    1;  % B05-B10
+    1;  % B06-B10
+    2;  % B09-B10  backbone CyL
+    1;  % B09-B11
+    1;  % B09-B13
+    2;  % B10-B14  acceso al centro
+    1;  % B11-B12
+    2;  % B11-B13  evacuacion Almaraz/Extremadura
+    2;  % B13-B14  backbone CLM
+    2;  % B14-B15  corredor Madrid
+    1;  % B12-B16
+    1;  % B13-B16
+    1;  % B13-B17
+    1;  % B16-B17
+    1;  % B07-B18
+    2;  % B18-B19  backbone catalan
+    2;  % B18-B20  corredor mediterraneo
+    2;  % B15-B20  Madrid-Levante
+    2;  % B14-B20  CLM-Levante
+    1   % B17-B20
+];
+
+% ---------------------------------------------------------
+% 4) Kedge en GW
+%    Formula en MW: K = n * V^2 / (xkm * L)
+%    Como V esta en kV y x en ohm/km, sale MW
+%    Se divide entre 1000 para pasar a GW
+% ---------------------------------------------------------
+Kedge = (nij .* V_kV^2) ./ (xkm .* Lij) / 1000;   % [GW]
+
+% ---------------------------------------------------------
+% 5) Construir matriz K simetrica
+% ---------------------------------------------------------
+N = numnodes(G);
+K = zeros(N,N);
+
+for e = 1:Nedges
+    i = s(e);
+    j = t(e);
+    K(i,j) = Kedge(e);
+    K(j,i) = Kedge(e);
+end
+
