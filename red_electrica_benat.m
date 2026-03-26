@@ -128,7 +128,7 @@ B = full(incidence(G));
 %  Red sin pérdidas (lossless): φ_ij = 0  →  solo susceptancias
 % =========================================================================
 
-%% PARÁMETROS FÍSICOS
+%% -- PARÁMETROS FÍSICOS --------------------------------------------------
 
 N   = numnodes(G);
 f0  = 50;               % Hz  (frecuencia nominal UCTE)
@@ -246,31 +246,32 @@ ev_sorted = sort(real(ev));
 fprintf('Conectividad algebraica λ₂(L_w) = %.4f GW\n', ev_sorted(2));
 fprintf('(λ₂ > 0 → grafo conectado; mayor valor → red más robusta)\n\n');
 
-%% ── 2. PUNTO DE OPERACIÓN ESTACIONARIO ────────────────────────────────
+
+%% -- PUNTO DE OPERACIÓN ESTACIONARIO ────────────────────────────────
 %  Resolver flujo de potencia DC: P_i = Σ_j K_ij · sin(δ_i - δ_j)
 %  B14 (nodo 14) como referencia de ángulo: δ_14 = 0
 
-slack     = 14;
+slack     = 14; % índice del nodo de referencia 
 non_slack = setdiff(1:N, slack);
 
 % Punto inicial: ángulos pequeños proporcionales a la potencia
-delta_guess           = zeros(N,1);
-delta_guess(non_slack) = Pi(non_slack) * 0.05;  % heurística
+delta_guess           = zeros(N,1); % vector de angulos iniciales
+delta_guess(non_slack) = Pi(non_slack) * 0.05;  % escalar para aproximar por angulos pequeños
 
 opts_fs = optimoptions('fsolve', 'Display','off', ...
                         'TolFun',1e-10, 'TolX',1e-10, ...
-                        'MaxIter',2000, 'Algorithm','levenberg-marquardt');
+                        'MaxIter',2000, 'Algorithm','levenberg-marquardt'); % definicion de opciones para fsolve
 
 [delta_free, ~, exitflag] = fsolve( ...
     @(x) pf_mismatch(x, Pi, K, slack, N), ...
-    delta_guess(non_slack), opts_fs);
+    delta_guess(non_slack), opts_fs);   % resolucion del sistema no lineal
 
 if exitflag <= 0
     warning('fsolve: convergencia dudosa. Comprobar factibilidad del flujo.');
 end
 
 delta_op          = zeros(N,1);
-delta_op(non_slack) = delta_free;
+delta_op(non_slack) = delta_free;   % insertar las soluciones
 
 % Verificar residuos
 P_calc    = K * sin(delta_op - delta_op.');  % suma sobre j
