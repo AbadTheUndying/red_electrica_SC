@@ -192,63 +192,88 @@ for k = 1:length(tSim)
     end
 end
 
-%% ===== GRAFICAS =====
-figure;
-plot(tSim, rad2deg(theta), 'LineWidth',1.1);
-xline(t_fault,'k--','LineWidth',1.4);
-grid on; xlabel('t (s)'); ylabel('\theta_i (grados)'); title('Angulos nodales');
+%% ===== PRESENTACION LIMPIA DE RESULTADOS =====
+% Historia que queremos contar:
+% 1) El sistema parte del equilibrio inicial
+% 2) En t = t_fault se pierde B11
+% 3) Cae la frecuencia y los angulos se reconfiguran
+% 4) La red llega a un nuevo estado estacionario
+% 5) La potencia se redistribuye por ciertos corredores clave
 
-figure;
-plot(tSim, freq, 'LineWidth',1.1);
-xline(t_fault,'k--','LineWidth',1.4); yline(50,'k:');
-grid on; xlabel('t (s)'); ylabel('Frecuencia (Hz)'); title('Frecuencia nodal');
+% -------------------------------------------------------------------------
+% Magnitudes resumen
+% -------------------------------------------------------------------------
+freq_mean = mean(freq, 2);     % frecuencia media de la red
+freq_min  = min(freq, [], 2);  % minimo nodal en cada instante
+freq_max  = max(freq, [], 2);  % maximo nodal en cada instante
 
-figure;
-plot(tSim, Fline, 'LineWidth',1.0);
-xline(t_fault,'k--','LineWidth',1.4);
-grid on; xlabel('t (s)'); ylabel('Flujo por linea (GW)'); title('Flujos de linea');
+theta0   = theta(1,:);         % equilibrio inicial
+thetaEnd = theta(end,:);       % estado final
+dtheta   = thetaEnd - theta0;  % cambio neto angular final
 
-%% ===== VOLTAJES AC RECONSTRUIDOS MEJORADOS =====
-nodesPlot = [11 14 15];   % B11, B14, B15
-Vamp = 1.0;               % amplitud en p.u.
-tFine = linspace(1.95, 2.10, 5000); % Malla fina para ver bien 50 Hz
+% Nadir global de frecuencia
+[f_min_global, idx_lin] = min(freq(:));
+[idx_tmin, idx_nmin] = ind2sub(size(freq), idx_lin);
 
-thetaFine = zeros(length(tFine), N);
+% -------------------------------------------------------------------------
+% FIGURA 1: FRECUENCIAS NODALES
+% -------------------------------------------------------------------------
+figure('Name','Frecuencias nodales','NumberTitle','off');
+hold on;
+
+cols = lines(N);
 for i = 1:N
-    thetaFine(:,i) = interp1(tSim, theta(:,i), tFine, 'pchip');
+    plot(tSim, freq(:,i), 'Color', cols(i,:), 'LineWidth', 1.2, ...
+        'DisplayName', nodeNames{i});
 end
 
-vAbs = zeros(length(tFine), length(nodesPlot));
-vRel = zeros(length(tFine), length(nodesPlot));
-dv   = zeros(length(tFine), length(nodesPlot));
-vSlack = Vamp * cos(w0*tFine(:) + thetaFine(:,slack));
+xline(t_fault,'k--','LineWidth',1.4,'DisplayName','Fallo B11');
+yline(50,'k:','LineWidth',1.2,'DisplayName','50 Hz');
 
-for m = 1:length(nodesPlot)
-    ii = nodesPlot(m);
-    vAbs(:,m) = Vamp * cos(w0*tFine(:) + thetaFine(:,ii));
-    vRel(:,m) = Vamp * cos(w0*tFine(:) + (thetaFine(:,ii) - thetaFine(:,slack)));
-    dv(:,m)   = vAbs(:,m) - vSlack;
+% Zoom para ver bien el transitorio y la convergencia
+xlim([1.8 8.0]);
+ylim([49.54 50.01]);
+
+grid on; box on;
+xlabel('t (s)');
+ylabel('Frecuencia (Hz)');
+title('Evolucion de las frecuencias nodales tras la perdida de B11');
+legend('Location','eastoutside','Interpreter','none');
+
+%% ===== FIGURA 2: VELOCIDADES ANGULARES =====
+figure('Name','Cambio angular y velocidades','NumberTitle','off');
+hold on;
+
+% Nodos representativos
+nodes_plot = [11 14 15 18 19 20];
+cols = lines(length(nodes_plot));
+
+% Dibujar omega_i(t) para esos nodos
+for m = 1:length(nodes_plot)
+    ii = nodes_plot(m);
+    plot(tSim, omega(:,ii), 'Color', cols(m,:), ...
+        'LineWidth', 1.8, 'DisplayName', nodeNames{ii});
 end
 
-figure('Name','Voltajes reconstruidos mejorados','NumberTitle','off');
-subplot(3,1,1); plot(tFine, vAbs, 'LineWidth', 1.1); xline(t_fault,'k--','LineWidth',1.4);
-grid on; xlabel('t (s)'); ylabel('v_i(t) [p.u.]'); title('Voltajes AC absolutos reconstruidos'); legend(nodeNames(nodesPlot), 'Interpreter','none', 'Location','best');
-subplot(3,1,2); plot(tFine, vRel, 'LineWidth', 1.1); xline(t_fault,'k--','LineWidth',1.4);
-grid on; xlabel('t (s)'); ylabel('v_i^{rel}(t) [p.u.]'); title('Voltajes reconstruidos referidos al slack');
-subplot(3,1,3); plot(tFine, dv, 'LineWidth', 1.1); xline(t_fault,'k--','LineWidth',1.4);
-grid on; xlabel('t (s)'); ylabel('\Deltav_i'); title('Diferencia de voltaje respecto al slack');
+% Instante del fallo
+xline(t_fault, 'k--', 'LineWidth', 1.4, 'DisplayName', 'Fallo B11');
 
-%% ===== ANGULOS RELATIVOS AL SLACK =====
-figure('Name','Angulos relativos al slack','NumberTitle','off');
-plot(tSim, rad2deg(theta - theta(:,slack)), 'LineWidth', 1.2);
-xline(t_fault,'k--','LineWidth',1.4);
-grid on; xlabel('t (s)'); ylabel('\theta_i - \theta_{slack} [grados]');
-title('Angulos relativos al slack'); legend(nodeNames, 'Interpreter','none', 'Location','eastoutside');
+% Valor final comun aproximado (sin leyenda)
+omega_sync_final = mean(omega(end,:));
+yline(omega_sync_final, 'k:', 'LineWidth', 1.2, 'HandleVisibility', 'off');
 
-%% ===== TABLA DE ARISTAS =====
-Tedges = table(edgeNames, sEdge(:), tEdge(:), d_geo, alpha, Lij, nij, Kedge, ...
-    'VariableNames', {'Edge','From','To','d_geo_km','alpha','Lij_km','nij','Kij_GW'});
-disp(Tedges);
+% Zoom y formato
+xlim([1.8 8.0]);
+ylim([-3.0 0.2]);
+
+grid on;
+box on;
+xlabel('t (s)');
+ylabel('\omega_i [rad/s]');
+title('Velocidades angulares tras la perdida de B11');
+
+% Leyenda dentro de la figura
+legend('Location', 'northeast', 'Interpreter', 'none', 'FontSize', 9);
 
 %% ===== FIGURA 3: PARAMETRO DE ORDEN =====
 
