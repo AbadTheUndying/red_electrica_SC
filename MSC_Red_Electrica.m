@@ -136,12 +136,13 @@ slack = 14; % índice del nodo de referencia desfase 0
 non_slack = setdiff(1:N, slack);
 
 % Punto inicial: ángulos pequeños proporcionales a la potencia
-delta_guess = zeros(N,1); 
+delta_guess = zeros(N,1); % vector de angulos iniciales
 delta_guess(non_slack) = 0.02 * Pi(non_slack); % escalar para aproximar por angulos pequeños
 
 opts_fs = optimoptions('fsolve', 'Display','iter', 'TolFun',1e-10, 'TolX',1e-10, 'MaxIter',2000, 'Algorithm','levenberg-marquardt');
 
-[delta_free, ~, exitflag] = fsolve(@(x) pf_mismatch(x, Pi, K, slack, N), delta_guess(non_slack), opts_fs);
+% resolucion del sistema no lineal buscando pf_mismatch=0
+[delta_free, ~, exitflag] = fsolve(@(x) pf_mismatch(x, Pi, K, slack, N), delta_guess(non_slack), opts_fs); 
 
 if exitflag <= 0
     warning('No se ha encontrado equilibrio claro.');
@@ -153,6 +154,7 @@ delta_op(non_slack) = delta_free;
 resid = sum(K .* sin(delta_op - delta_op.'), 2) - Pi;
 fprintf('\nResiduo maximo equilibrio = %.3e GW\n', max(abs(resid)));
 
+%vector definitivo de desfases iniciales en estado estacionario: delta_op
 %% ===== CONTINGENCIA =====
 t_fault = 2.0;
 t_end   = 40.0;
@@ -163,7 +165,7 @@ Pi_fault(11) = 0;
 K_fault = K;
 
 %% ===== SIMULACION SWING =====
-x0 = [delta_op; zeros(N,1)];
+x0 = [delta_op; zeros(N,1)]; %estado inicial del estado estacionario
 ode_opts = odeset('RelTol',1e-7, 'AbsTol',1e-9, 'MaxStep',0.02);
 
 [t1, X1] = ode15s(@(tt,x) swing_eq(tt, x, Pi, K, Mi, Di, N), [0 t_fault], x0, ode_opts);
