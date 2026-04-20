@@ -249,3 +249,145 @@ title('Angulos relativos al slack'); legend(nodeNames, 'Interpreter','none', 'Lo
 Tedges = table(edgeNames, sEdge(:), tEdge(:), d_geo, alpha, Lij, nij, Kedge, ...
     'VariableNames', {'Edge','From','To','d_geo_km','alpha','Lij_km','nij','Kij_GW'});
 disp(Tedges);
+
+%% ===== FIGURA 3: PARAMETRO DE ORDEN =====
+
+Z = exp(1i * theta);     % representación compleja
+r = abs(mean(Z, 2));     % parámetro de orden
+
+% 1. Crear figura
+figure('Name', 'Parametro de orden', 'NumberTitle', 'off', 'Color', 'w');
+
+% ==========================================
+% GRÁFICA PRINCIPAL
+% ==========================================
+% Ploteamos la curva principal
+plot(tSim, r, 'LineWidth', 2.5, 'Color', [0 0.4470 0.7410]); 
+hold on;
+
+% Línea de falla
+xline(t_fault, '--', 'Color', [0.8500 0.3250 0.0980], 'LineWidth', 1.8, ...
+    'Label', 'Inicio de Falla', 'LabelVerticalAlignment', 'bottom', ...
+    'LabelHorizontalAlignment', 'left', 'FontSize', 11);
+
+% Formato general
+grid on;
+grid minor;
+box on;
+ylim([0 1.05]);
+xlim([0 max(tSim)]); 
+
+% Etiquetas y título (Corregido el error de LaTeX)
+xlabel('$t$ (s)', 'Interpreter', 'latex', 'FontSize', 14);
+ylabel('$r(t)$', 'Interpreter', 'latex', 'FontSize', 14);
+title('Sincronización global de la red', 'FontSize', 15, 'FontWeight', 'bold');
+
+% Ajuste de ejes principales
+ax1 = gca;
+ax1.FontSize = 12;
+ax1.TickLabelInterpreter = 'latex';
+
+% ==========================================
+% INSET PLOT (VENTANA DE ZOOM)
+% ==========================================
+% Definir posición de la sub-ventana [Izquierda, Abajo, Ancho, Alto]
+% Estos valores van de 0 a 1. La ponemos a la derecha abajo para no tapar datos.
+ax2 = axes('Position', [0.45 0.30 0.42 0.40]); 
+
+% Volvemos a plotear los mismos datos en este nuevo eje
+plot(ax2, tSim, r, 'LineWidth', 2, 'Color', [0 0.4470 0.7410]);
+hold(ax2, 'on');
+
+% Volvemos a poner la línea de falla
+xline(ax2, t_fault, '--', 'Color', [0.8500 0.3250 0.0980], 'LineWidth', 1.5);
+
+% Limitamos los ejes para hacer el zoom
+xlim(ax2, [1 5]); 
+% IMPORTANTE: Ajusta este ylim según hasta dónde caiga tu r(t)
+% Por lo que vi en la foto, se mantiene por encima de 0.90
+ylim(ax2, [0.91 0.98]); 
+
+% Formato de la ventana de zoom
+grid(ax2, 'on');
+box(ax2, 'on');
+title(ax2, 'Detalle de la falla', 'FontSize', 11, 'FontWeight', 'normal');
+ax2.FontSize = 10;
+ax2.TickLabelInterpreter = 'latex';
+
+hold off;
+
+%% ==== FIGURA 4: REDISTRIBUCION DE FLUJOS ====
+
+pre_idx  = tSim < t_fault;
+post_idx = tSim > (t_end - 5);   % promedio de los ultimos 5 s
+
+F_pre_mean  = mean(Fline(pre_idx,:), 1);
+F_post_mean = mean(Fline(post_idx,:), 1);
+dF = F_post_mean - F_pre_mean;
+
+% Seleccionar las lineas con mayor cambio absoluto
+nTop = min(6, length(dF)); % Cambiado Ne por length(dF) para mayor seguridad
+[~, idx_top] = maxk(abs(dF), nTop);
+
+% 1. Crear figura con fondo blanco
+figure('Name','Redistribucion de flujos','NumberTitle','off', 'Color', 'w');
+
+% 2. Layout compacto para aprovechar el espacio
+t = tiledlayout(2,1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+% Extraer paleta de colores (un color único para cada línea/barra)
+cols = lines(length(idx_top));
+
+% ==========================================
+% GRÁFICA SUPERIOR: EVOLUCIÓN TEMPORAL
+% ==========================================
+ax1 = nexttile;
+hold(ax1, 'on');
+
+for m = 1:length(idx_top)
+    e = idx_top(m);
+    plot(tSim, Fline(:,e), 'LineWidth', 1.5, 'Color', cols(m,:), ...
+        'DisplayName', edgeNames{e});
+end
+
+% Línea de falla destacada
+xline(t_fault, '--', 'Color', [0.8500 0.3250 0.0980], 'LineWidth', 1.8, ...
+    'DisplayName', 'Instante de Falla', 'Label', 'Falla', ...
+    'LabelVerticalAlignment', 'bottom', 'LabelHorizontalAlignment', 'left', 'FontSize', 10);
+
+grid on; grid minor; box on;
+xlabel('$t$ (s)', 'Interpreter', 'latex', 'FontSize', 13);
+ylabel('Flujo (GW)', 'Interpreter', 'latex', 'FontSize', 13);
+title('Evolución temporal de los corredores más afectados', 'FontSize', 14, 'FontWeight', 'bold');
+
+% Configuración de la leyenda y ejes
+legend('Location','eastoutside','Interpreter','none', 'FontSize', 11);
+ax1.FontSize = 11;
+ax1.TickLabelInterpreter = 'latex';
+xlim([0 max(tSim)]);
+
+% ==========================================
+% GRÁFICA INFERIOR: CAMBIO NETO (BARRAS)
+% ==========================================
+ax2 = nexttile;
+hold(ax2, 'on');
+
+% Crear barras y aplicar el MISMO color que las líneas superiores ('flat')
+b = bar(ax2, dF(idx_top), 'FaceColor', 'flat');
+b.CData = cols; 
+
+% Línea base en Y=0 para marcar claramente positivos y negativos
+yline(ax2, 0, 'k-', 'LineWidth', 1.2);
+
+grid on; grid minor; box on;
+ylabel('$\Delta$ Flujo (GW)', 'Interpreter', 'latex', 'FontSize', 13);
+title('Cambio neto de flujo final vs. inicial', 'FontSize', 14, 'FontWeight', 'bold');
+
+% Etiquetas del eje X
+xticks(ax2, 1:length(idx_top));
+xticklabels(ax2, edgeNames(idx_top));
+xtickangle(ax2, 30);
+ax2.FontSize = 11;
+
+% Forzar que el eje X de ambas gráficas esté alineado visualmente
+xlim(ax2, [0.5 length(idx_top)+0.5]);
