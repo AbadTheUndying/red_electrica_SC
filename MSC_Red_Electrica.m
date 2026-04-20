@@ -168,12 +168,15 @@ K_fault = K;
 x0 = [delta_op; zeros(N,1)]; %estado inicial del estado estacionario
 ode_opts = odeset('RelTol',1e-7, 'AbsTol',1e-9, 'MaxStep',0.02);
 
+%doble integracion de la ecuacion antes y despues del fallo en t_fault
+%X1 y X2 son los estados theta, thetapunto en ambos tramos
 [t1, X1] = ode15s(@(tt,x) swing_eq(tt, x, Pi, K, Mi, Di, N), [0 t_fault], x0, ode_opts);
 [t2, X2] = ode15s(@(tt,x) swing_eq(tt, x, Pi_fault, K_fault, Mi, Di, N), [t_fault t_end], X1(end,:)', ode_opts);
 
-tSim = [t1; t2(2:end)];
-XSim = [X1; X2(2:end,:)];
+tSim = [t1; t2(2:end)]; %vector de tiempos global
+XSim = [X1; X2(2:end,:)]; %matriz de estados gobal
 
+%aqui ya se extraen los valores buscados
 theta = XSim(:,1:N);
 omega = XSim(:,N+1:2*N);
 freq  = 50 + omega/(2*pi);
@@ -182,6 +185,7 @@ freq  = 50 + omega/(2*pi);
 Ne = length(sEdge);
 Fline = zeros(length(tSim), Ne);
 
+%Fline contiene el flujo de la arista e en un timepo tk (Kijsen...)
 for k = 1:length(tSim)
     for e = 1:Ne
         Fline(k,e) = K(sEdge(e),tEdge(e)) * sin(theta(k,sEdge(e)) - theta(k,tEdge(e)));
